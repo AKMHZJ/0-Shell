@@ -1,6 +1,7 @@
 use std::io::{ self, Write };
 use std::env;
 use std::path::Path;
+use std::fs;
 
 fn main() {
     loop {
@@ -61,6 +62,27 @@ fn main() {
                             let path = Path::new(path_arg.unwrap());
                             if let Err(e) = env::set_current_dir(path){
                                 eprintln!("cd: {}: {}", e, path.display());
+                            }
+                        }
+                    }
+                    "ls" => {
+                        let path = ".";
+                        match fs::read_dir(path){
+                            Ok(entries) => {
+                                for entry in entries{
+                                    if let Ok(entry) = entry {
+                                        let file_name = entry.file_name();
+                                        let file_name_str = file_name.to_string_lossy();
+
+                                        if !file_name_str.starts_with('.'){
+                                            print!("{} ", file_name_str);
+                                        }
+                                    }
+                                }
+                                println!();
+                            }
+                            Err(e) => {
+                                eprintln!("ls: cannot access '{}': {}", path, e);
                             }
                         }
                     }
