@@ -66,15 +66,41 @@ fn main() {
                         }
                     }
                     "ls" => {
-                        let path = ".";
+                        let mut show_hidden = false;
+                        let mut classify = false;
+                        let mut path_arg = None;
+
+                        for arg in &args{
+                            if arg.starts_with('-'){
+                                for ch in arg.chars().skip(1) {
+                                    match ch {
+                                        'a' => show_hidden = true,
+                                        'F' => classify = true,
+                                        _ => {},
+                                    }
+                                }
+                            } else {
+                                path_arg = Some(arg);
+                            }
+                        }
+
+                        let path = Path::new(*path_arg.unwrap_or(&"."));
+
                         match fs::read_dir(path){
                             Ok(entries) => {
                                 for entry in entries{
                                     if let Ok(entry) = entry {
                                         let file_name = entry.file_name();
-                                        let file_name_str = file_name.to_string_lossy();
+                                        let mut file_name_str = file_name.to_string_lossy().into_owned();
 
-                                        if !file_name_str.starts_with('.'){
+                                        if show_hidden || !file_name_str.starts_with('.'){
+                                            if classify {
+                                                if let Ok(metadata) = entry.metadata() {
+                                                    if metadata.is_dir(){
+                                                        file_name_str.push('/');
+                                                    }
+                                                }
+                                            }
                                             print!("{} ", file_name_str);
                                         }
                                     }
@@ -82,7 +108,7 @@ fn main() {
                                 println!();
                             }
                             Err(e) => {
-                                eprintln!("ls: cannot access '{}': {}", path, e);
+                                eprintln!("ls: cannot access '{}': {}", path.display(), e);
                             }
                         }
                     }
