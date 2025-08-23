@@ -183,6 +183,18 @@ fn main() {
                             }
                         }
                     }
+                    "mkdir" => {
+                        if args.is_empty() {
+                            eprintln!("mkdir: missing operand");
+                            continue;
+                        }
+
+                        for path in args{
+                            if let Err(e) = fs::create_dir(path) {
+                                eprintln!("mkdir: cannot create directory '{}': {}", path, e);
+                            }
+                        }
+                    }
                     _ => {
                         println!("Command '{}' not found", command);
                     }
