@@ -2,6 +2,9 @@ use std::io::{ self, Write };
 use std::env;
 use std::path::Path;
 use std::fs;
+use std::os::unix::fs::{ MetadataExt, PermissionsExt };
+use chrono::{ DateTime, Local };
+use users::{ get_user_by_uid, get_group_by_gid };
 
 fn main() {
     loop {
@@ -60,7 +63,7 @@ fn main() {
                             }
                         } else {
                             let path = Path::new(path_arg.unwrap());
-                            if let Err(e) = env::set_current_dir(path){
+                            if let Err(e) = env::set_current_dir(path) {
                                 eprintln!("cd: {}: {}", e, path.display());
                             }
                         }
@@ -69,14 +72,22 @@ fn main() {
                         let mut show_hidden = false;
                         let mut classify = false;
                         let mut path_arg = None;
+                        let mut long_listing = false;
 
-                        for arg in &args{
-                            if arg.starts_with('-'){
+                        for arg in &args {
+                            if arg.starts_with('-') {
                                 for ch in arg.chars().skip(1) {
                                     match ch {
-                                        'a' => show_hidden = true,
-                                        'F' => classify = true,
-                                        _ => {},
+                                        'a' => {
+                                            show_hidden = true;
+                                        }
+                                        'F' => {
+                                            classify = true;
+                                        }
+                                        'l' => {
+                                            long_listing = true;
+                                        }
+                                        _ => {}
                                     }
                                 }
                             } else {
@@ -86,30 +97,73 @@ fn main() {
 
                         let path = Path::new(*path_arg.unwrap_or(&"."));
 
-                        match fs::read_dir(path){
-                            Ok(entries) => {
-                                for entry in entries{
-                                    if let Ok(entry) = entry {
-                                        let file_name = entry.file_name();
-                                        let mut file_name_str = file_name.to_string_lossy().into_owned();
+                        let entries = match fs::read_dir(path) {
+                            Ok(entries) => entries,
+                            Err(e) => {
+                                eprint!("ls: connot access '{}': {}", path.display(), e);
+                                continue;
+                            }
+                        };
 
-                                        if show_hidden || !file_name_str.starts_with('.'){
-                                            if classify {
-                                                if let Ok(metadata) = entry.metadata() {
-                                                    if metadata.is_dir(){
-                                                        file_name_str.push('/');
-                                                    }
-                                                }
-                                            }
-                                            print!("{} ", file_name_str);
+                        for entry in entries {
+                            if let Ok(entry) = entry {
+                                let file_name = entry.file_name();
+                                let mut file_name_str = file_name.to_string_lossy().into_owned();
+
+                                if show_hidden || !file_name_str.starts_with('.') {
+                                    let metadata = match entry.metadata() {
+                                        Ok(meta) => meta,
+                                        Err(e) => {
+                                            eprintln!("ls: cannot get metadata for '{}': {}",file_name_str,e);
+                                            continue;
                                         }
+                                    };
+
+                                    if long_listing {
+                                        let perms = metadata.permissions();
+                                        let mode = perms.mode();
+                                        let is_dir = metadata.is_dir();
+                                        let perms_str = format!(
+                                            "{}{}{}{}{}{}{}{}{}{}", 
+                                            if is_dir { 'd' } else { '-' },
+                                            if mode & 0o400 != 0 { 'r' } else { '-' },
+                                            if mode & 0o200 != 0 { 'w' } else { '-' },
+                                            if mode & 0o100 != 0 { 'x' } else { '-' },
+                                            if mode & 0o040 != 0 { 'r' } else { '-' },
+                                            if mode & 0o020 != 0 { 'w' } else { '-' },
+                                            if mode & 0o010 != 0 { 'x' } else { '-' },
+                                            if mode & 0o004 != 0 { 'r' } else { '-' },
+                                            if mode & 0o002 != 0 { 'w' } else { '-' },
+                                            if mode & 0o001 != 0 { 'x' } else { '-' }
+                                        );
+
+                                        let link_count = metadata.nlink();
+
+                                        let uid = metadata.uid();
+                                        let gid = metadata.gid();
+                                        let owner = get_user_by_uid(uid).map(|u| u.name().to_string_lossy().into_owned()).unwrap_or_else(|| uid.to_string());
+                                        let group = get_group_by_gid(gid).map(|g| g.name().to_string_lossy().into_owned()).unwrap_or_else(|| gid.to_string());
+
+                                        let size = metadata.len();
+
+                                        let modified_time: DateTime<Local> = metadata.modified().unwrap().into();
+                                        let time_str = modified_time.format("%b %d %H:%M").to_string();
+
+                                        if is_dir && classify { file_name_str.push('/'); }
+
+                                        println!(
+                                            "{} {:>3} {:<8} {:<8} {:>8} {} {}",
+                                            perms_str, link_count, owner, group, size, time_str, file_name_str
+                                        );
+                                    } else {
+                                        if metadata.is_dir() && classify { file_name_str.push('/'); }
+                                        print!("{}  ", file_name_str);
                                     }
                                 }
-                                println!();
                             }
-                            Err(e) => {
-                                eprintln!("ls: cannot access '{}': {}", path.display(), e);
-                            }
+                        }
+                        if !long_listing {
+                            println!();
                         }
                     }
                     _ => {
