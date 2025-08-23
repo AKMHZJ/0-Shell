@@ -1,5 +1,5 @@
 use std::io::{ self, Write };
-use std::env;
+use std::{env};
 use std::path::Path;
 use std::fs;
 use std::os::unix::fs::{ MetadataExt, PermissionsExt };
@@ -164,6 +164,23 @@ fn main() {
                         }
                         if !long_listing {
                             println!();
+                        }
+                    }
+                    "cat" => {
+                        if args.is_empty() {
+                            eprintln!("cat: missing operand");
+                            continue;
+                        }
+
+                        for path in args {
+                            match fs::read_to_string(path) {
+                                Ok(contents) => {
+                                    print!("{}", contents);
+                                }
+                                Err(e) => {
+                                    eprintln!("cat: {}: {}", path, e);
+                                }
+                            }
                         }
                     }
                     _ => {
