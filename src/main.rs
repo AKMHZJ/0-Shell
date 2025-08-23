@@ -35,7 +35,7 @@ fn main() {
                 match command {
                     "exit" => {
                         break;
-                    }
+                    },
                     "pwd" => {
                         match env::current_dir() {
                             Ok(path) => {
@@ -45,11 +45,11 @@ fn main() {
                                 eprintln!("pwd: {}", e);
                             }
                         }
-                    }
+                    },
                     "echo" => {
                         let output = args.join(" ");
                         println!("{}", output);
-                    }
+                    },
                     "cd" => {
                         let path_arg = args.get(0);
 
@@ -67,7 +67,7 @@ fn main() {
                                 eprintln!("cd: {}: {}", e, path.display());
                             }
                         }
-                    }
+                    },
                     "ls" => {
                         let mut show_hidden = false;
                         let mut classify = false;
@@ -165,7 +165,7 @@ fn main() {
                         if !long_listing {
                             println!();
                         }
-                    }
+                    },
                     "cat" => {
                         if args.is_empty() {
                             eprintln!("cat: missing operand");
@@ -175,14 +175,14 @@ fn main() {
                         for path in args {
                             match fs::read_to_string(path) {
                                 Ok(contents) => {
-                                    print!("{}", contents);
+                                    print!("{}\n", contents);
                                 }
                                 Err(e) => {
                                     eprintln!("cat: {}: {}", path, e);
                                 }
                             }
                         }
-                    }
+                    },
                     "mkdir" => {
                         if args.is_empty() {
                             eprintln!("mkdir: missing operand");
@@ -194,7 +194,7 @@ fn main() {
                                 eprintln!("mkdir: cannot create directory '{}': {}", path, e);
                             }
                         }
-                    }
+                    },
                     "rm" => {
                         if args.is_empty() {
                             eprintln!("rm: missing operand");
@@ -233,6 +233,32 @@ fn main() {
                                     eprintln!("rm: cannot remove '{}': {}", path, e);
                                 }
                             }
+                        }
+                    },
+                    "cp" => {
+                        if args.len() != 2 {
+                            eprintln!("cp: missing source or destination operand");
+                            continue;
+                        }
+
+                        let source = args[0];
+                        let destination = args[1];
+
+                        if let Err(e) = fs::copy(source, destination) {
+                            eprintln!("cp: cannot copy '{}' to '{}': {}", source, destination, e);
+                        }
+                    },
+                    "mv" => {
+                        if args.len() != 2 {
+                            eprintln!("mv: missing source or destination operand");
+                            continue;
+                        }
+
+                        let source = args[0];
+                        let destination = args[1];
+
+                        if let Err(e) = fs::rename(source, destination){
+                            eprintln!("mv: cannot move '{}' to '{}': {}", source, destination, e);
                         }
                     }
                     _ => {
