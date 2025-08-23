@@ -195,6 +195,46 @@ fn main() {
                             }
                         }
                     }
+                    "rm" => {
+                        if args.is_empty() {
+                            eprintln!("rm: missing operand");
+                            continue;
+                        }
+
+                        let mut recursive = false;
+                        let mut paths = Vec::new();
+
+                        for arg in args {
+                            if arg == "-r" {
+                                recursive = true;
+                            } else {
+                                paths.push(arg);
+                            }
+                        }
+
+                        for path in paths {
+                            match fs::metadata(path) {
+                                Ok(metadata) => {
+                                    if metadata.is_dir() {
+                                        if recursive {
+                                            if let Err(e) = fs::remove_dir_all(path) {
+                                                eprintln!("rm: cannot remove '{}': {}", path, e);
+                                            }
+                                        } else {
+                                            eprintln!("rm: cannot remove '{}': Is a directory", path);
+                                        }
+                                    } else {
+                                        if let Err(e) = fs::remove_file(path) {
+                                            eprintln!("rm: cannot remove '{}': {}", path, e);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("rm: cannot remove '{}': {}", path, e);
+                                }
+                            }
+                        }
+                    }
                     _ => {
                         println!("Command '{}' not found", command);
                     }
