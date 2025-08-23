@@ -257,9 +257,30 @@ fn main() {
                         let source = args[0];
                         let destination = args[1];
 
-                        if let Err(e) = fs::rename(source, destination){
-                            eprintln!("mv: cannot move '{}' to '{}': {}", source, destination, e);
+                        let path = Path::new(destination);
+                        let dest_path = if path.is_dir() {
+                            Path::new(destination).join(
+                                Path::new(source)
+                                    .file_name()
+                                    .unwrap_or_default()
+                            )
+                        } else {
+                            Path::new(destination).to_path_buf()
+                        };
+
+                        match fs::rename(source, &dest_path) {
+                            Ok(_) => {}
+                            Err(_e) => {
+                                if let Err(copy_err) = fs::copy(source, &dest_path) {
+                                    eprintln!("mv: cannot copy '{}' to '{}': {}", source, dest_path.display(), copy_err);
+                                    continue;
+                                }
+                                if let Err(remove_err) = fs::remove_file(source) {
+                                    eprintln!("mv: cannot remove '{}': {}", source, remove_err);
+                                }
+                            }
                         }
+
                     }
                     _ => {
                         println!("Command '{}' not found", command);
